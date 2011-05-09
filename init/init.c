@@ -51,6 +51,7 @@
 #include "init_parser.h"
 #include "util.h"
 #include "ueventd.h"
+#include "samsung.h"
 
 static int property_triggers_enabled = 0;
 
@@ -662,6 +663,7 @@ int main(int argc, char **argv)
     int property_set_fd_init = 0;
     int signal_fd_init = 0;
     int keychord_fd_init = 0;
+    int rebootmode = REBOOT_MODE_NONE;
 
     if (!strcmp(basename(argv[0]), "ueventd"))
         return ueventd_main(argc, argv);
@@ -692,27 +694,53 @@ int main(int argc, char **argv)
          */
     open_devnull_stdio();
     log_init();
-    
-    INFO("reading config file\n");
-    init_parse_config_file("/init.rc");
 
     /* pull the kernel commandline and ramdisk properties file in */
     import_kernel_cmdline(0);
 
 #ifdef BOARD_PROVIDES_BOOTMODE
-    /* Samsung Galaxy S: special bootmode for recovery
-     * Samsung Bootloader only knows one Kernel, which has to detect
-     * from bootmode if it should run recovery. */
+    //rebootmode = samsung_bootmode();
+    //samsung_bootmode();
     if (!strcmp(bootmode, "2"))
-        init_parse_config_file("/recovery.rc");
-    else
-#endif
-     {
-        get_hardware_name(hardware, &revision);
-        snprintf(tmp, sizeof(tmp), "/init.%s.rc", hardware);
-        init_parse_config_file(tmp);
-     }
+    {
+        rebootmode = REBOOT_MODE_RECOVERY;
+    }
+    if (!strcmp(bootmode, "3"))
+    {
+        rebootmode = REBOOT_MODE_ARM11_FOTA;
+    }
+    if (!strcmp(bootmode, "4"))
+    {
+        rebootmode = REBOOT_MODE_CHARGING;
+    }
+    if (rebootmode < 0)
+    {
+        rebootmode = REBOOT_MODE_NONE;
+    }
 
+    INFO("reading config file\n");
+    switch (rebootmode) {
+        case REBOOT_MODE_CHARGING:
+            init_parse_config_file("/lpm.rc");
+            break;
+        case REBOOT_MODE_RECOVERY:
+            init_parse_config_file("/recovery.rc");
+            break;
+        case REBOOT_MODE_ARM11_FOTA:
+        case REBOOT_MODE_ARM9_FOTA:
+            init_parse_config_file("/fota.rc");
+            break;
+        case REBOOT_MODE_DOWNLOAD: // we should not be here!
+        case REBOOT_MODE_NONE:
+        default:
+#else
+    {
+#endif
+            init_parse_config_file("/init.rc");
+            get_hardware_name(hardware, &revision);
+            snprintf(tmp, sizeof(tmp), "/init.%s.rc", hardware);
+            init_parse_config_file(tmp);
+    }
 
     action_for_each_trigger("early-init", action_add_queue_tail);
 

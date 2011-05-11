@@ -121,6 +121,7 @@ LOCAL_SRC_FILES := \
 	services.c \
 	file_sync_service.c \
 	jdwp_service.c \
+	framebuffer_service.c \
 	remount_service.c \
 	usb_linux_client.c \
 	log_service.c \
@@ -141,6 +142,10 @@ endif
 
 ifneq ($(TARGET_RECOVERY_PRE_COMMAND),)
 	LOCAL_CFLAGS += -DRECOVERY_PRE_COMMAND='$(TARGET_RECOVERY_PRE_COMMAND)'
+endif
+
+ifeq ($(BOARD_USE_SCREENCAP),true)
+	LOCAL_CFLAGS += -DUSE_SCREENCAP
 endif
 
 LOCAL_MODULE := adbd
